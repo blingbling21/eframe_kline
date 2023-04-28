@@ -1,0 +1,36 @@
+[package]
+name = "eframe_kline"
+version = "0.1.0"
+authors = ["zhangliuhuan"]
+edition = "2021"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+[lib]
+crate-type = ["cdylib"]
+
+[dependencies]
+egui = "0.21.0"
+eframe = { version = "0.21.0", default-features = false, features = [
+    "accesskit",     # Make egui comptaible with screen readers. NOTE: adds a lot of dependencies.
+    "default_fonts", # Embed the default egui fonts.
+    "glow",          # Use the glow rendering backend. Alternative: "wgpu".
+    "persistence",   # Enable restoring app state when restarting the app.
+] }
+serde = { version = "1.0.160", features = ["derive"] }
+console_error_panic_hook = "0.1"
+tracing-wasm = "0.2"
+web-sys = "0.3.61"
+chrono = "0.4.24"
+wasm-bindgen-futures = "0.4"
+wasm-bindgen = { version = "0.2.84" }
+tungstenite = "0.19.0"
+
+[profile.release]
+opt-level = 2
+
+[profile.dev.package."*"]
+opt-level = 2
+
+# 停止build后的优化
+[package.metadata.wasm-pack.profile.release]
+wasm-opt = false

@@ -1,0 +1,15 @@
+{
+  "name": "eframe_kline",
+  "version": "1.0.0",
+  "main": "index.js",
+  "author": "blingbling <1802351065@qq.com>",
+  "license": "MIT",
+  "scripts": {
+    "dev": "wasm-pack build && vite"
+  },
+  "devDependencies": {
+    "typescript": "^5.0.4",
+    "vite": "^4.2.2",
+    "vite-plugin-wasm": "^3.2.2"
+  }
+}
