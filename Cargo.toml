@@ -23,7 +23,6 @@ web-sys = "0.3.61"
 chrono = "0.4.24"
 wasm-bindgen-futures = "0.4"
 wasm-bindgen = { version = "0.2.84" }
-tungstenite = "0.19.0"
 
 [profile.release]
 opt-level = 2
