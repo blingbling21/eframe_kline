@@ -5,7 +5,7 @@ use egui::{
 use serde::Serialize;
 use web_sys::console;
 
-use self::utils::{datetime_to_timestamp, timestamp_to_datetime};
+use self::utils::{datetime_to_timestamp, timestamp_to_datetime, CustomError};
 
 mod utils;
 
@@ -37,8 +37,10 @@ pub struct KLine {
     has_new_data: bool,
     /// x轴的范围
     x_range: AxisRange,
-    /// y轴的范围
+    /// 蜡烛图y轴的范围
     y_range: AxisRange,
+    /// 成交量图y轴的最大值
+    y_volume_max: f64,
     /// x轴在drag状态下每帧的向量，正负表示方向
     drag_x_move: f32,
     /// 两个蜡烛图的x轴距离
@@ -47,6 +49,8 @@ pub struct KLine {
     is_candle_double_click: bool,
     /// 当前帧是否双击成交量图
     is_volume_double_click: bool,
+    /// http是否已执行
+    is_http_execute: bool,
 }
 
 impl Default for KLine {
@@ -61,10 +65,12 @@ impl Default for KLine {
                 min: f64::INFINITY,
                 max: f64::NEG_INFINITY,
             },
+            y_volume_max: f64::NEG_INFINITY,
             drag_x_move: 0.0,
             half_distance: 30.0,
             is_candle_double_click: false,
             is_volume_double_click: false,
+            is_http_execute: false,
         }
     }
 }
@@ -87,6 +93,7 @@ impl KLine {
                 if x >= self.x_range.min && x <= self.x_range.max {
                     self.y_range.min = self.y_range.min.min(candle.low);
                     self.y_range.max = self.y_range.max.max(candle.high);
+                    self.y_volume_max = self.y_volume_max.max(candle.volume);
                 }
                 let (quartile1, quartile3, color) = if candle.open > candle.close {
                     (candle.close, candle.open, Color32::GREEN)
@@ -124,6 +131,7 @@ impl KLine {
             min: f64::INFINITY,
             max: f64::NEG_INFINITY,
         };
+        self.y_volume_max = f64::NEG_INFINITY;
     }
 
     /// 增加y轴的范围，在上下边界产生一些空白
@@ -134,6 +142,9 @@ impl KLine {
                 min: self.y_range.min - space,
                 max: self.y_range.max + space,
             };
+        }
+        if self.y_volume_max != f64::NEG_INFINITY {
+            self.y_volume_max *= 1.1;
         }
     }
 
@@ -237,7 +248,7 @@ impl KLine {
                 // };
                 let plot_bounds: PlotBounds = PlotBounds::from_min_max(
                     [self.x_range.min, 0.0],
-                    [self.x_range.max, self.y_range.max],
+                    [self.x_range.max, self.y_volume_max],
                 );
                 plot_ui.set_plot_bounds(plot_bounds);
                 let chart = BarChart::new(bars.to_owned());
@@ -270,8 +281,29 @@ impl KLine {
             .response
     }
 
+    async fn http(&mut self) -> Result<String, CustomError> {
+        let response = if self.is_http_execute {
+            String::new()
+        } else {
+            let res = reqwest::get(
+                "http://192.168.214.184:5100/optquote/getKLineData?code=CZCE.AP.AP401&ktype=m1",
+            )
+            .await?
+            .text()
+            .await?;
+            self.is_http_execute = true;
+            res
+        };
+        Ok(response)
+    }
+
     pub fn show(&mut self, ui: &mut Ui, ctx: &Context) {
         self.set_size(ui);
+        // let mut res = String::new();
+        // async {
+        //     res = self.http().await?;
+        // }.await;
+        // console::log_1(&format!("res: {}", res).into());
         let mut all_candles = vec![];
         self.candles = vec![
             Candles {
@@ -332,14 +364,5 @@ impl KLine {
         } else {
             self.drag_x_move = 0.0;
         }
-
-        // if candle_response.double_clicked_by(PointerButton::Primary) {
-        //     self.is_candle_double_click = true;
-        // } else if volume_response.double_clicked_by(PointerButton::Primary) {
-        //     self.is_volume_double_click = true;
-        // } else {
-        //     self.is_candle_double_click = false;
-        //     self.is_volume_double_click = false;
-        // }
     }
 }
