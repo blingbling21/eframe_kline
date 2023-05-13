@@ -1,0 +1,41 @@
+Arguments: 
+  D:\nodejs\node.exe D:\nodejs\node_modules\yarn\bin\yarn.js
+
+PATH: 
+  C:\Users\zhang\bin;D:\Git\mingw64\bin;D:\Git\usr\local\bin;D:\Git\usr\bin;D:\Git\usr\bin;D:\Git\mingw64\bin;D:\Git\usr\bin;C:\Users\zhang\bin;C:\Windows\system32;C:\Windows;C:\Windows\System32\Wbem;C:\Windows\System32\WindowsPowerShell\v1.0;C:\Windows\System32\OpenSSH;D:\Git\cmd;D:\nvm;D:\nodejs;C:\Users\zhang\.cargo\bin;C:\Users\zhang\.cargo\bin;C:\Users\zhang\AppData\Local\Microsoft\WindowsApps;D:\Microsoft VS Code\bin;D:\nvm;D:\nodejs;D:\Git\usr\bin\vendor_perl;D:\Git\usr\bin\core_perl
+
+Yarn version: 
+  1.22.19
+
+Node version: 
+  16.20.0
+
+Platform: 
+  win32 x64
+
+Trace: 
+  Error: connect ETIMEDOUT 104.16.20.35:443
+      at TCPConnectWrap.afterConnect [as oncomplete] (node:net:1278:16)
+
+npm manifest: 
+  {
+    "name": "eframe_kline",
+    "version": "1.0.0",
+    "main": "index.js",
+    "author": "blingbling <1802351065@qq.com>",
+    "license": "MIT",
+    "scripts": {
+      "dev": "wasm-pack build && vite"
+    },
+    "devDependencies": {
+      "typescript": "^5.0.4",
+      "vite": "^4.2.2",
+      "vite-plugin-wasm": "^3.2.2"
+    }
+  }
+
+yarn manifest: 
+  No manifest
+
+Lockfile: 
+  No lockfile

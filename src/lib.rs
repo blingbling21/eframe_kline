@@ -1,8 +1,10 @@
 mod app;
 mod kline;
-use app::App;
+
+#[cfg(target_arch = "wasm32")]
 use eframe::wasm_bindgen::prelude::wasm_bindgen;
 
+#[cfg(target_arch = "wasm32")]
 #[wasm_bindgen]
 pub fn main() {
     console_error_panic_hook::set_once();
@@ -14,7 +16,7 @@ pub fn main() {
         eframe::start_web(
             "eframe_kline",
             web_options,
-            Box::new(|cc| Box::new(App::new(cc))),
+            Box::new(|cc| Box::new(app::App::new(cc))),
         )
         .await
         .expect("启动eframe失败");

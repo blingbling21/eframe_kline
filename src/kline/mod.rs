@@ -1,11 +1,14 @@
+use std::sync::mpsc::{self, Receiver};
+
 use egui::{
     plot::{Bar, BarChart, BoxElem, BoxPlot, BoxSpread, HLine, Plot, PlotBounds, VLine},
     Color32, Context, PointerButton, Pos2, Response, Stroke, Ui, Vec2,
 };
+use poll_promise::Promise;
 use serde::Serialize;
 use web_sys::console;
 
-use self::utils::{datetime_to_timestamp, timestamp_to_datetime, CustomError};
+use self::utils::{CustomError, DateTimeUtils};
 
 mod utils;
 
@@ -49,8 +52,13 @@ pub struct KLine {
     is_candle_double_click: bool,
     /// 当前帧是否双击成交量图
     is_volume_double_click: bool,
+    /// 十字线y轴的位置
+    v_line_pos: f64,
     /// http是否已执行
     is_http_execute: bool,
+    ///
+    #[serde(skip)]
+    promise: Option<Promise<String>>,
 }
 
 impl Default for KLine {
@@ -70,7 +78,9 @@ impl Default for KLine {
             half_distance: 30.0,
             is_candle_double_click: false,
             is_volume_double_click: false,
+            v_line_pos: 0.0,
             is_http_execute: false,
+            promise: Default::default(),
         }
     }
 }
@@ -89,7 +99,7 @@ impl KLine {
             .candles
             .iter()
             .map(|candle| {
-                let x = datetime_to_timestamp(&candle.datetime);
+                let x = DateTimeUtils::datetime_to_timestamp(&candle.datetime);
                 if x >= self.x_range.min && x <= self.x_range.max {
                     self.y_range.min = self.y_range.min.min(candle.low);
                     self.y_range.max = self.y_range.max.max(candle.high);
@@ -159,7 +169,7 @@ impl KLine {
                 if x % 60.0 != 0.0 {
                     String::new()
                 } else {
-                    timestamp_to_datetime(x)
+                    DateTimeUtils::timestamp_to_datetime(x)
                 }
             })
             .show_y(false)
@@ -186,16 +196,21 @@ impl KLine {
                 let box_plot = BoxPlot::new(candles.to_owned());
                 plot_ui.box_plot(box_plot);
 
+                // 使用K线图整体的y轴十字线
+                plot_ui.vline(VLine::new(self.v_line_pos).color(Color32::BLACK));
+
                 if plot_ui.plot_hovered() {
                     if let Some(plot_point) = plot_ui.pointer_coordinate() {
                         plot_ui.hline(HLine::new(plot_point.y).color(Color32::BLACK));
-                        plot_ui.vline(VLine::new(plot_point.x).color(Color32::BLACK));
+                        // 将位置信息赋值给v_line_pos以便全局使用。
+                        self.v_line_pos = plot_point.x;
                         if let Some(candle_boxelme) = candles.iter().find(|p| {
                             plot_point.x - self.half_distance < p.argument
                                 && plot_point.x + self.half_distance > p.argument
                         }) {
                             if let Some(candle) = self.candles.iter().find(|p| {
-                                datetime_to_timestamp(&p.datetime) == candle_boxelme.argument
+                                DateTimeUtils::datetime_to_timestamp(&p.datetime)
+                                    == candle_boxelme.argument
                             }) {
                                 egui::show_tooltip(ctx, egui::Id::new("tooltip"), |ui| {
                                     ui.label(format!("日期: {}", candle.datetime));
@@ -230,7 +245,7 @@ impl KLine {
                 if x % 60.0 != 0.0 {
                     String::new()
                 } else {
-                    timestamp_to_datetime(x)
+                    DateTimeUtils::timestamp_to_datetime(x)
                 }
             })
             .show_y(false)
@@ -254,16 +269,21 @@ impl KLine {
                 let chart = BarChart::new(bars.to_owned());
                 plot_ui.bar_chart(chart);
 
+                // 使用K线图整体的y轴十字线
+                plot_ui.vline(VLine::new(self.v_line_pos).color(Color32::BLACK));
+
                 if plot_ui.plot_hovered() {
                     if let Some(plot_point) = plot_ui.pointer_coordinate() {
                         plot_ui.hline(HLine::new(plot_point.y).color(Color32::BLACK));
-                        plot_ui.vline(VLine::new(plot_point.x).color(Color32::BLACK));
+                        // 将位置信息赋值给v_line_pos以便全局使用。
+                        self.v_line_pos = plot_point.x;
                         if let Some(candle_boxelme) = candles.iter().find(|p| {
                             plot_point.x - self.half_distance < p.argument
                                 && plot_point.x + self.half_distance > p.argument
                         }) {
                             if let Some(candle) = self.candles.iter().find(|p| {
-                                datetime_to_timestamp(&p.datetime) == candle_boxelme.argument
+                                DateTimeUtils::datetime_to_timestamp(&p.datetime)
+                                    == candle_boxelme.argument
                             }) {
                                 egui::show_tooltip(ctx, egui::Id::new("tooltip"), |ui| {
                                     ui.label(format!("日期: {}", candle.datetime));
@@ -281,25 +301,52 @@ impl KLine {
             .response
     }
 
-    async fn http(&mut self) -> Result<String, CustomError> {
-        let response = if self.is_http_execute {
-            String::new()
-        } else {
-            let res = reqwest::get(
+    fn http(&mut self) {
+        let (sender, promise) = Promise::new();
+        // let (tx, rx) = mpsc::channel();
+        wasm_bindgen_futures::spawn_local(async move {
+            let res = match reqwest::get(
                 "http://192.168.214.184:5100/optquote/getKLineData?code=CZCE.AP.AP401&ktype=m1",
             )
-            .await?
-            .text()
-            .await?;
-            self.is_http_execute = true;
-            res
-        };
-        Ok(response)
+            .await {
+                Ok(response) => match response.text().await {
+                    Ok(text) => text,
+                    Err(_) => "err".to_string(),
+                },
+                Err(_) => "err".to_string(),
+            };
+            sender.send(res);
+        });
+        self.is_http_execute = true;
+        self.promise = Some(promise);
+        // let response = if self.is_http_execute {
+        //     String::new()
+        // } else {
+        //     let res = reqwest::get(
+        //         "http://192.168.214.184:5100/optquote/getKLineData?code=CZCE.AP.AP401&ktype=m1",
+        //     )
+        //     .await?
+        //     .text()
+        //     .await?;
+        //     self.is_http_execute = true;
+        //     res
+        // };
+        // Ok(response)
     }
 
     pub fn show(&mut self, ui: &mut Ui, ctx: &Context) {
         self.set_size(ui);
         // let mut res = String::new();
+        if !self.is_http_execute {
+            self.http();
+            self.is_http_execute = true;
+        }
+        if let Some(promise) = &self.promise {
+            if let Some(result) = promise.ready() {
+                console::log_1(&format!("result: {}", result).into());
+                self.promise = None;
+            }
+        }
         // async {
         //     res = self.http().await?;
         // }.await;
