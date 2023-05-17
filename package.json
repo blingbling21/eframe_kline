@@ -11,5 +11,8 @@
     "typescript": "^5.0.4",
     "vite": "^4.2.2",
     "vite-plugin-wasm": "^3.2.2"
+  },
+  "dependencies": {
+    "vite-plugin-qiankun": "^1.0.15"
   }
 }

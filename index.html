@@ -35,15 +35,21 @@
         width: 100%;
       }
 
+      .parent {
+        position: relative;
+        height: 100%;
+        width: 100%;
+      }
+
       /* Position canvas in center-top: */
       canvas {
         margin-right: auto;
         margin-left: auto;
         display: block;
-        position: absolute;
+        /* position: absolute;
         top: 0%;
         left: 50%;
-        transform: translate(-50%, 0%);
+        transform: translate(-50%, 0%); */
       }
 
       .centered {
@@ -92,7 +98,9 @@
     </style>
   </head>
   <body>
-    <canvas id="eframe_kline"></canvas>
-    <script type="module" src="./index.ts"></script>
+    <div class="parent">
+      <canvas id="eframe_kline"></canvas>
+    </div>
+    <script type="module" src="/index.ts"></script>
   </body>
 </html>
